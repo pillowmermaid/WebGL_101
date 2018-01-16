@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+
+	<style type="text/css">
+	body {
+		border: 0;
+		margin: 0; 
+	}
+	canvas {
+		object-fit: contain;
+		width: 100vw;
+		height: 100vh;
+		display: block;
+	}
+</style>
+</head>
+<body>
+	<canvas id="c"></canvas>
+	
+	<script type="text/javascript" src="./helpers/canvas.js"></script>
+	<script type="text/javascript" src="./helpers/math.js"></script>
+	<script type="text/javascript" src="./helpers/webgl.js"></script>
+	<script id="2d-vertex-shader" type="x-shader/x-vertex">
+		// attribute vec4 a_position;
+		attribute vec2 a_position;
+
+		uniform vec2 u_resolution;
+
+		void main() {
+			//                1                     2                       3
+			//(( pixels to a range of 0 -> 1) * make range 0 -> 2) - (make range -1 -> +1)
+			vec2 clipSpace =  ((a_position / u_resolution) * 2.0) - 1.0;
+
+			gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+		}
+	</script>
+	
+	<script id="2d-fragment-shader" type="x-shader/x-fragment">
+		precision mediump float;
+
+		uniform vec4 u_color;
+
+		void main() {
+			gl_FragColor = u_color;
+		}
+	</script>
+	
+	<script type="text/javascript">
+		function main() {
+
+			var canvas = document.getElementById("c");
+			canvas.width = 400;
+			canvas.height = 300;
+
+			var gl = canvas.getContext("webgl");
+			if(!gl){
+			//i guess you aint got it
+		}
+
+		var vertexShader = createShaderFromEl(gl, "2d-vertex-shader");
+		var fragmentShader = createShaderFromEl(gl, "2d-fragment-shader");
+
+		var program = createProgram(gl, vertexShader, fragmentShader);
+
+		var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+		var resolutionUniformLocation = gl.getUniformLocation(program, "u_resolution");
+		var colorUniformLocation = gl.getUniformLocation(program, "u_color");
+
+		var positionBuffer = gl.createBuffer();
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+		// rendering below 
+		resize(gl);		
+
+		gl.useProgram(program);
+
+		gl.enableVertexAttribArray(positionAttributeLocation);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+		//Sets an iterator to go through the buffer data
+		var size = 2;  //how many values to return per iteration
+		var type = gl.FLOAT; //what type they are
+		var normalize = false; 
+		var stride = 0;  //how many spots to jump per iteration
+		var offset = 0; //how many spots to offset the start by
+
+		// passes an array of 2d vectors to the positionAttribute} 
+		gl.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset);
+
+		// sets the 2d vector that resolutionUniformLocation points at to {canvasW, canvasH} 
+		gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+
+		for (var i = 0; i < 50; i++){
+			createRectangle(gl, randomInt(300), randomInt(300), randomInt(300), randomInt(300));
+			gl.uniform4f(colorUniformLocation, Math.random(), Math.random(), Math.random(), 1);
+			
+			var primitiveType = gl.TRIANGLES;
+			var offset = 0;
+			var count = 6;
+			gl.drawArrays(primitiveType, offset, count);
+		}
+	}
+
+	function createRectangle(gl, x, y, w, h) {
+		var x1 = x;
+		var x2 = x + w;
+		var y1 = y; 
+		var y2 = y + h;
+
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+			x1, y1,
+			x2, y1,
+			x1, y2,
+			x1, y2,
+			x2, y1,
+			x2, y2]), gl.STATIC_DRAW);
+	}
+
+
+	main();
+	window.addEventListener('resize', resize)
+
+
+</script>
+</body>
+</html>
