@@ -10,18 +10,20 @@ var program;
 var positionLocation;
 var resolutionLocation;
 var colorLocation;
-var translationLocation;
-var rotationLocation;
+var matrixLocation;
 
 var positionBuffer;
 
-var mouseX = 0;
-var mouseY = 0;
+var angleInRadians;
+var rateOfRotation = 2;
+var mouseX = 500;
+var mouseY = 200;
 var frame = 0;
 
 var shape = {
-  translation: [0, 0],
-  rotation: [0, -1],
+  translation: [mouseX, mouseY],
+  rotation: 0,
+  scale: [0.8, 0.8],
   width: 100,
   height: 30,
   color: [Math.random(), Math.random(), Math.random(), 1]
@@ -38,31 +40,32 @@ function init() {
     //i guess you aint got it
   }
 
-  vertexShader = createShaderFromEl(gl, "2d-vertex-shader");
-  fragmentShader = createShaderFromEl(gl, "2d-fragment-shader");
+  vertexShader        = createShaderFromEl(gl, "2d-vertex-shader");
+  fragmentShader      = createShaderFromEl(gl, "2d-fragment-shader");
 
-  program = createProgram(gl, vertexShader, fragmentShader);
+  program             = createProgram(gl, vertexShader, fragmentShader);
 
-  positionLocation = gl.getAttribLocation(program, "a_position");
-  resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-  colorLocation = gl.getUniformLocation(program, "u_color");
-  translationLocation = gl.getUniformLocation(program, "u_translation");
-  rotationLocation = gl.getUniformLocation(program, "u_rotation");
+  positionLocation    = gl.getAttribLocation(program, "a_position");
+  resolutionLocation  = gl.getUniformLocation(program, "u_resolution");
+  colorLocation       = gl.getUniformLocation(program, "u_color");
+  matrixLocation      = gl.getUniformLocation(program, "u_matrix");
 
-  positionBuffer = gl.createBuffer();
+
+
+  positionBuffer      = gl.createBuffer();
 
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   createLetterF(gl);
 
   render();
 
-  canvas.addEventListener('mousemove', updatePosition);
+  //canvas.addEventListener('mousemove', updatePosition);
   window.addEventListener('resize', resize);
 }
 
 function updatePosition(evt) {
-  mouseX = evt.clientX;
-  mouseY = evt.clientY;
+  mouseX = evt.clientX * 2;
+  mouseY = evt.clientY * 2;
 }
 
 function createRectangle(gl, x, y, w, h) {
@@ -102,71 +105,110 @@ function createLetterF(gl) {
       67, 60,
       67, 90
     ]), gl.STATIC_DRAW);
-}
+  }
 
 
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// ~~~~~ RENDERING AND UPDATE LOOPS ~~~~~~~~~~
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // ~~~~~ RENDERING AND UPDATE LOOPS ~~~~~~~~~~
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-function update() {
-  frame++;
-  // if(frame % 20 === 0){
-  //   shape.color = [Math.random(), Math.random(), Math.random(), 1];
-  // }
-  shape.translation = [mouseX, mouseY];
+  function update() {
+    frame++;
+    // if(frame % 20 === 0){
+    //   shape.color = [Math.random(), Math.random(), Math.random(), 1];
+    // }
 
+    if(shape.rotation < 360){
+      shape.rotation+=rateOfRotation;
+    }
+    else if(shape.rotation === 360){
+      shape.rotation = 0;
+    }
+    angleInRadians = shape.rotation * Math.PI / 180;
+    shape.translation = [mouseX, mouseY];
 
-  render();
-}
+    render();
+  }
 
-function render() {
-  // rendering below
-  resize(gl);
+  function render() {
+    // rendering below
+    resize(gl);
 
-  gl.useProgram(program);
+    gl.useProgram(program);
 
-  gl.enableVertexAttribArray(positionLocation);
+    gl.enableVertexAttribArray(positionLocation);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
-  //Sets an iterator to go through the buffer data
-  var size = 2; //how many values to return per iteration
-  var type = gl.FLOAT; //what type they are
-  var normalize = false;
-  var stride = 0; //how many spots to jump per iteration
-  var offset = 0; //how many spots to offset the start by
+    //Sets an iterator to go through the buffer data
+    var size = 2; //how many values to return per iteration
+    var type = gl.FLOAT; //what type they are
+    var normalize = false;
+    var stride = 0; //how many spots to jump per iteration
+    var offset = 0; //how many spots to offset the start by
 
-  // passes an array of 2d vectors to the positionAttribute}
-  gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
+    // passes an array of 2d vectors to the positionAttribute}
+    gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
 
-  // sets the 2d vector that resolutionLocation points at to {canvasW, canvasH}
-  gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+    gl.uniform4fv(colorLocation, shape.color);
 
-  gl.uniform4fv(colorLocation, shape.color);
+    // sets a projection matrix to convert pixels into clipspace
+    var projectionMatrix = m3.projection(gl.canvas.width, gl.canvas.height);
 
-  gl.uniform2fv(translationLocation, shape.translation);
-  gl.uniform2fv(rotationLocation, shape.rotation);
+    // transformation matrices
+    var translationMatrix = m3.translation(shape.translation[0], shape.translation[1]);
+    var rotationMatrix    = m3.rotation(angleInRadians);
+    var scaleMatrix       = m3.scaling(shape.scale[0], shape.scale[1]);
 
-  var primitiveType = gl.TRIANGLES;
-  var offset = 0;
-  var count = 18;
-  gl.drawArrays(primitiveType, offset, count);
-
-  //~~~~~~~~~~~~~~~~
-  //~~~OLD BUSTED~~~
-  //~~~~~~~~~~~~~~~~
-  // for (var i = 0; i < 1; i++){
-  //   createRectangle(gl, shape.translation[0], shape.translation[1], shape.width, shape.height);
-  //   gl.uniform4f(colorLocation, shape.color[0], shape.color[1], shape.color[2], shape.color[3]);
-  //   var primitiveType = gl.TRIANGLES;
-  //   var offset = 0;
-  //   var count = 6;
-  //   gl.drawArrays(primitiveType, offset, count);
-  // }
-
-  requestAnimationFrame(update);
-}
+    var originMatrix      = m3.translation(-50, -75);
 
 
-init();
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //~~~FOR MULTIPLE OBJECTS~~~
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //var identity          = m3.identity();
+
+    // for (var i = 0; i < 1; ++i){
+    //   identity = m3.multiply(identity, translationMatrix);
+    //   identity = m3.multiply(identity, rotationMatrix);
+    //   identity = m3.multiply(identity, scaleMatrix);
+    //
+    //   gl.uniformMatrix3fv(matrixLocation, false, identity);
+    //
+    //   var primitiveType = gl.TRIANGLES;
+    //   var offset = 0;
+    //   var count = 18;
+    //   gl.drawArrays(primitiveType, offset, count);
+    // }
+
+    var matrix = m3.multiply(projectionMatrix, translationMatrix);
+    matrix = m3.multiply(matrix, rotationMatrix);
+    matrix = m3.multiply(matrix, scaleMatrix);
+    matrix = m3.multiply(matrix, originMatrix);
+
+    gl.uniformMatrix3fv(matrixLocation, false, matrix);
+
+    var primitiveType = gl.TRIANGLES;
+    var offset = 0;
+    var count = 18;
+    gl.drawArrays(primitiveType, offset, count);
+
+
+
+    //~~~~~~~~~~~~~~~~
+    //~~~OLD BUSTED~~~
+    //~~~~~~~~~~~~~~~~
+    // for (var i = 0; i < 1; i++){
+    //   createRectangle(gl, shape.translation[0], shape.translation[1], shape.width, shape.height);
+    //   gl.uniform4f(colorLocation, shape.color[0], shape.color[1], shape.color[2], shape.color[3]);
+    //   var primitiveType = gl.TRIANGLES;
+    //   var offset = 0;
+    //   var count = 6;
+    //   gl.drawArrays(primitiveType, offset, count);
+    // }
+
+    requestAnimationFrame(update);
+  }
+
+
+  init();
